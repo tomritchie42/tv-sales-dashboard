@@ -1,0 +1,32 @@
+{
+  "consignments": [
+    @foreach(var consignment in Model.Consignments){
+    {
+      "ConsignmentNumber": "@consignment.ConsignmentNumber",
+      "ConsignmentDate": "@consignment.ConsignmentDate",
+      "SenderName": "@consignment.SenderName",
+      "SenderAddress": "@consignment.SenderAddress",
+      "SenderSuburb": "@consignment.SenderSuburb",
+      "SenderState": "@consignment.SenderSuburbState",
+      "SenderPostcode": "@consignment.SenderSuburbPostcode",
+      "ReceiverName": "@consignment.ReceiverName",
+      "ReceiverAddress": "@consignment.ReceiverAddress",
+      "ReceiverSuburb": "@consignment.ReceiverSuburb",
+      "ReceiverState": "@consignment.ReceiverSuburbState",
+      "ReceiverPostcode": "@consignment.ReceiverSuburbPostcode",
+      "SenderReference": "@consignment.SenderReference",
+      "ReceiverReference": "@consignment.ReceiverReference",
+      "SpecialInstructions": "@consignment.SpecialInstructions",
+      "ServiceType": "@consignment.ServiceName",
+      "Status": "@consignment.StatusName",
+      "Revenue": @consignment.TotalCharge,
+      "Weight": @consignment.TotalWeight,
+      "Cubic": @consignment.TotalCubic,
+      "Items": @consignment.TotalItems,
+      "DeliveryDate": "@consignment.DeliveryDate",
+      "CreatedDate": "@consignment.CreatedDate",
+      "CustomerName": "@consignment.SenderName"
+    },
+    }
+  ]
+}
