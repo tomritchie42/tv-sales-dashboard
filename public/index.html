@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Team Dashboard — Transvirtual (Live)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --card-border: #2a2d3a;
+    --accent: #6366f1;
+    --accent-light: #818cf8;
+    --green: #22c55e;
+    --red: #ef4444;
+    --orange: #f59e0b;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --text-bright: #f8fafc;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); padding: 24px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); }
+  .header h1 { font-size: 22px; color: var(--text-bright); font-weight: 700; }
+  .header h1 span { color: var(--accent-light); }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .date-label { color: var(--text-dim); font-size: 13px; }
+  .period-select, .refresh-btn, .import-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .refresh-btn:hover, .import-btn:hover { background: rgba(255,255,255,0.2); }
+  .period-select option { background: var(--card); }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); display: inline-block; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .status-bar { background: var(--card); border-bottom: 1px solid var(--card-border); padding: 8px 32px; font-size: 12px; color: var(--text-dim); display: flex; justify-content: space-between; }
+  .container { max-width: 1440px; margin: 0 auto; padding: 24px; }
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .kpi-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; }
+  .kpi-label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .kpi-value { font-size: 28px; font-weight: 700; color: var(--text-bright); }
+  .kpi-change { font-size: 12px; margin-top: 6px; }
+  .kpi-change.up { color: var(--green); }
+  .kpi-change.down { color: var(--red); }
+  .section { margin-bottom: 24px; }
+  .section-title { font-size: 16px; font-weight: 600; color: var(--text-bright); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .section-title .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .section-title .dot.red { background: var(--red); }
+  .section-title .dot.green { background: var(--green); }
+  .section-title .dot.blue { background: var(--accent); }
+  .section-title .dot.orange { background: var(--orange); }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; }
+  .card-title { font-size: 13px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 12px; color: var(--text-dim); font-weight: 500; border-bottom: 1px solid var(--card-border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge.red { background: rgba(239,68,68,0.15); color: #fca5a5; }
+  .badge.green { background: rgba(34,197,94,0.15); color: #86efac; }
+  .badge.orange { background: rgba(245,158,11,0.15); color: #fcd34d; }
+  .badge.blue { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+  .alert-row { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; margin-bottom: 8px; background: rgba(239,68,68,0.06); border-left: 3px solid var(--red); }
+  .alert-row.warn { background: rgba(245,158,11,0.06); border-left-color: var(--orange); }
+  .alert-text { flex: 1; }
+  .alert-text strong { color: var(--text-bright); font-size: 14px; }
+  .alert-text p { color: var(--text-dim); font-size: 12px; margin-top: 2px; }
+  .alert-meta { text-align: right; font-size: 12px; color: var(--text-dim); }
+  .chart-container { position: relative; height: 280px; }
+  .chart-container-sm { position: relative; height: 220px; }
+  .scroll-y { max-height: 400px; overflow-y: auto; }
+  .scroll-y::-webkit-scrollbar { width: 4px; }
+  .scroll-y::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 4px; }
+  .conc-bar { height: 24px; border-radius: 6px; overflow: hidden; display: flex; margin-top: 8px; }
+  .conc-segment { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: rgba(0,0,0,0.7); }
+  .search-input { background: rgba(255,255,255,0.06); border: 1px solid var(--card-border); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 13px; width: 100%; margin-bottom: 12px; }
+  .search-input::placeholder { color: var(--text-dim); }
+  .search-input:focus { outline: none; border-color: var(--accent); }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+  .empty-state h2 { color: var(--text-bright); margin-bottom: 12px; font-size: 20px; }
+  .empty-state p { margin-bottom: 20px; }
+  .empty-state code { background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 32px; max-width: 600px; width: 90%; }
+  .modal h2 { color: var(--text-bright); margin-bottom: 16px; }
+  .modal p { color: var(--text-dim); font-size: 13px; margin-bottom: 16px; }
+  .modal textarea { width: 100%; height: 200px; background: var(--bg); border: 1px solid var(--card-border); color: var(--text); padding: 12px; border-radius: 8px; font-family: monospace; font-size: 12px; resize: vertical; }
+  .modal-buttons { display: flex; gap: 12px; margin-top: 16px; justify-content: flex-end; }
+  .modal-buttons button { padding: 8px 20px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-secondary { background: rgba(255,255,255,0.1); color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span class="live-dot"></span> &nbsp;<span>TV</span> Sales Dashboard — Live</h1>
+  <div class="header-right">
+    <span class="date-label" id="currentDate"></span>
+    <select class="period-select" id="periodSelect" onchange="loadDashboard()">
+      <option value="30">Last 30 Days</option>
+      <option value="60">Last 60 Days</option>
+      <option value="90">Last 90 Days</option>
+    </select>
+    <button class="import-btn" onclick="showImportModal()">Import CSV</button>
+    <button class="refresh-btn" onclick="loadDashboard()">Refresh</button>
+  </div>
+</div>
+<div class="status-bar">
+  <span id="statusText">Connecting...</span>
+  <span id="lastUpdate"></span>
+</div>
+
+<div class="container">
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot red"></span> At-Risk & Churning Customers</div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Inactive 7+ Days (Were Active)</div>
+        <div class="scroll-y" id="inactiveList"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Volume Drop 20%+ (Period-on-Period)</div>
+        <div class="scroll-y" id="volumeDropList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot blue"></span> Revenue & Volume</div>
+    <div class="grid-2">
+      <div class="card"><div class="card-title">Monthly Revenue Trend</div><div class="chart-container"><canvas id="revChart"></canvas></div></div>
+      <div class="card"><div class="card-title">Consignment Volume Trend</div><div class="chart-container"><canvas id="volChart"></canvas></div></div>
+    </div>
+    <div style="height:16px"></div>
+    <div class="grid-3">
+      <div class="card"><div class="card-title">Revenue by Service Type</div><div class="chart-container-sm"><canvas id="serviceChart"></canvas></div></div>
+      <div class="card"><div class="card-title">New vs Existing Revenue</div><div class="chart-container-sm"><canvas id="newVsExistChart"></canvas></div></div>
+      <div class="card"><div class="card-title">Customer Concentration Risk</div><div id="concRisk"></div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot green"></span> Customer Rankings</div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Top 10 Customers by Revenue</div>
+        <input type="text" class="search-input" placeholder="Search customers..." oninput="filterTable('topTable', this.value)">
+        <div class="table-wrap scroll-y">
+          <table id="topTable"><thead><tr><th>#</th><th>Customer</th><th>Revenue</th><th>Consignments</th><th>Avg/Con</th><th>Trend</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Bottom 10 Customers by Revenue</div>
+        <div class="table-wrap scroll-y">
+          <table id="bottomTable"><thead><tr><th>#</th><th>Customer</th><th>Revenue</th><th>Consignments</th><th>Last Order</th><th>Trend</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot blue"></span> Operational Insights</div>
+    <div class="grid-2">
+      <div class="card"><div class="card-title">Top Lanes by Volume</div>
+        <div class="table-wrap scroll-y">
+          <table id="lanesTable"><thead><tr><th>Origin</th><th>Destination</th><th>Consignments</th><th>Revenue</th><th>Top Customer</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+      <div class="card"><div class="card-title">Peak Shipping Days</div><div class="chart-container-sm"><canvas id="peakChart"></canvas></div></div>
+    </div>
+    <div style="height:16px"></div>
+    <div class="grid-2">
+      <div class="card"><div class="card-title">Revenue by State/Zone</div>
+        <div class="table-wrap scroll-y">
+          <table id="zoneTable"><thead><tr><th>Zone</th><th>Revenue</th><th>Consignments</th><th>Avg Revenue</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+      <div class="card"><div class="card-title">Service Type Mix</div><div class="chart-container-sm"><canvas id="serviceChart2"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Import CSV Modal -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal">
+    <h2>Import CSV Data</h2>
+    <p>Paste CSV data from a Transvirtual consignment export. The system will auto-map common TV column names.</p>
+    <textarea id="csvInput" placeholder="Paste your CSV data here..."></textarea>
+    <div class="modal-buttons">
+      <button class="btn-secondary" onclick="hideImportModal()">Cancel</button>
+      <button class="btn-primary" onclick="importCSV()">Import</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const fmt = n => '$' + (n||0).toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:0});
+const pctChange = (curr, prev) => prev === 0 ? 'NEW' : (((curr-prev)/prev)*100).toFixed(1);
+let charts = {};
+
+function destroyCharts() {
+  Object.values(charts).forEach(c => { if (c && c.destroy) c.destroy(); });
+  charts = {};
+}
+
+function filterTable(tableId, query) {
+  const rows = document.getElementById(tableId).querySelectorAll('tbody tr');
+  query = query.toLowerCase();
+  rows.forEach(r => { r.style.display = r.textContent.toLowerCase().includes(query) ? '' : 'none'; });
+}
+
+function showImportModal() { document.getElementById('importModal').classList.add('active'); }
+function hideImportModal() { document.getElementById('importModal').classList.remove('active'); }
+
+async function importCSV() {
+  const csv = document.getElementById('csvInput').value;
+  if (!csv.trim()) return;
+  try {
+    const resp = await fetch('/api/import-csv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: csv
+    });
+    const result = await resp.json();
+    if (result.success) {
+      alert('Imported ' + result.imported + ' consignments. Total in database: ' + result.total);
+      hideImportModal();
+      loadDashboard();
+    } else {
+      alert('Import error: ' + result.error);
+    }
+  } catch (err) {
+    alert('Import failed: ' + err.message);
+  }
+}
+
+async function loadDashboard() {
+  const period = document.getElementById('periodSelect').value;
+  document.getElementById('statusText').textContent = 'Loading...';
+
+  try {
+    const resp = await fetch('/api/dashboard?period=' + period);
+    const data = await resp.json();
+
+    document.getElementById('statusText').innerHTML =
+      '<span class="live-dot"></span> &nbsp;Connected — ' + data.totalStored.toLocaleString() + ' consignments in database';
+    document.getElementById('lastUpdate').textContent = 'Last refreshed: ' + new Date(data.generatedAt).toLocaleTimeString();
+
+    if (data.totalStored === 0) {
+      document.querySelector('.container').innerHTML =
+        '<div class="empty-state">' +
+        '<h2>No data yet</h2>' +
+        '<p>The dashboard is connected and waiting for consignment data from Transvirtual.</p>' +
+        '<p>You can either:<br>' +
+        '1. Configure the TV Webservice export to POST to <code>/api/webhook</code><br>' +
+        '2. Click <strong>Import CSV</strong> above to manually load a Transvirtual export</p>' +
+        '</div>';
+      return;
+    }
+
+    destroyCharts();
+    renderKPIs(data);
+    renderChurnAlerts(data);
+    renderRevenueCharts(data);
+    renderCustomerRankings(data);
+    renderOperational(data);
+  } catch (err) {
+    document.getElementById('statusText').textContent = 'Connection error — is the server running?';
+    console.error(err);
+  }
+}
+
+function renderKPIs(data) {
+  const k = data.kpis;
+  const revChange = pctChange(k.totalRevenue, k.prevRevenue);
+  const consChange = pctChange(k.totalConsignments, k.prevConsignments);
+  const kpis = [
+    { label: 'Period Revenue', value: fmt(k.totalRevenue), change: revChange, up: k.totalRevenue >= k.prevRevenue },
+    { label: 'Consignments', value: k.totalConsignments.toLocaleString(), change: consChange, up: k.totalConsignments >= k.prevConsignments },
+    { label: 'Active Customers', value: k.activeCustomers },
+    { label: 'Avg Rev / Consignment', value: '$' + k.avgRevenuePerCon },
+    { label: 'At-Risk Customers', value: k.atRiskCount, warn: k.atRiskCount > 0 },
+    { label: 'New Customers', value: k.newCustomers, good: true },
+  ];
+  document.getElementById('kpiRow').innerHTML = kpis.map(ki =>
+    '<div class="kpi-card">' +
+    '<div class="kpi-label">' + ki.label + '</div>' +
+    '<div class="kpi-value" style="' + (ki.warn ? 'color:var(--red)' : ki.good ? 'color:var(--green)' : '') + '">' + ki.value + '</div>' +
+    (ki.change ? '<div class="kpi-change ' + (ki.up?'up':'down') + '">' + (ki.up?'&#9650;':'&#9660;') + ' ' + Math.abs(ki.change) + '% vs prev period</div>' : '') +
+    '</div>').join('');
+}
+
+function renderChurnAlerts(data) {
+  const inactive = data.atRisk.inactive;
+  const volumeDrop = data.atRisk.volumeDrop;
+  document.getElementById('inactiveList').innerHTML = inactive.length === 0
+    ? '<div style="padding:20px;text-align:center;color:var(--text-dim)">No inactive alerts — all customers active</div>'
+    : inactive.map(c =>
+      '<div class="alert-row">' +
+      '<div class="alert-text"><strong>' + c.name + '</strong>' +
+      '<p>Last order: ' + c.lastOrderDate + ' — was doing ' + c.previousVolume + ' cons/week</p></div>' +
+      '<div class="alert-meta">' + fmt(c.totalRevenue) + ' lifetime</div></div>').join('');
+
+  document.getElementById('volumeDropList').innerHTML = volumeDrop.length === 0
+    ? '<div style="padding:20px;text-align:center;color:var(--text-dim)">No volume drops detected</div>'
+    : volumeDrop.map(c =>
+      '<div class="alert-row">' +
+      '<div class="alert-text"><strong>' + c.name + '</strong>' +
+      '<p>Revenue: ' + fmt(c.previousRevenue) + ' to ' + fmt(c.currentRevenue) + ' (' + c.currentVolume + ' vs ' + c.previousVolume + ' cons)</p></div>' +
+      '<div class="alert-meta"><span class="badge red">' + c.dropPercent + '%</span></div></div>').join('');
+}
+
+function renderRevenueCharts(data) {
+  const labels = data.monthlyTrends.map(m => m.label);
+
+  charts.rev = new Chart(document.getElementById('revChart'), {
+    type: 'line',
+    data: { labels, datasets: [{ label: 'Revenue', data: data.monthlyTrends.map(m => m.revenue), borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', fill: true, tension: 0.3, pointRadius: 5, pointBackgroundColor: '#6366f1' }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { y: { ticks: { callback: v => '$'+(v/1000).toFixed(0)+'k', color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }, x: { ticks: { color: '#94a3b8' }, grid: { display: false } } } }
+  });
+
+  charts.vol = new Chart(document.getElementById('volChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Consignments', data: data.monthlyTrends.map(m => m.consignments), backgroundColor: 'rgba(34,197,94,0.6)', borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }, x: { ticks: { color: '#94a3b8' }, grid: { display: false } } } }
+  });
+
+  const stLabels = Object.keys(data.serviceTypes);
+  const stData = Object.values(data.serviceTypes);
+  const stColors = ['#6366f1','#22c55e','#f59e0b','#06b6d4','#ec4899','#a855f7','#14b8a6'];
+  charts.svc = new Chart(document.getElementById('serviceChart'), {
+    type: 'doughnut',
+    data: { labels: stLabels, datasets: [{ data: stData, backgroundColor: stColors.slice(0, stLabels.length) }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#94a3b8', padding: 12, font: { size: 11 } } } } }
+  });
+
+  const conc = data.concentration;
+  const top5Rev = conc.top5Revenue;
+  const otherRev = conc.totalRevenue - top5Rev;
+  charts.newExist = new Chart(document.getElementById('newVsExistChart'), {
+    type: 'doughnut',
+    data: { labels: ['Top 5 Customers','All Others'], datasets: [{ data: [top5Rev, otherRev], backgroundColor: ['#6366f1','#22c55e'] }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#94a3b8', padding: 12, font: { size: 11 } } } } }
+  });
+
+  const top5Pct = conc.totalRevenue > 0 ? (conc.top5Revenue / conc.totalRevenue * 100).toFixed(1) : 0;
+  const colors = ['#6366f1','#818cf8','#a5b4fc','#c7d2fe','#e0e7ff'];
+  document.getElementById('concRisk').innerHTML =
+    '<div style="text-align:center;margin-bottom:12px;">' +
+    '<span style="font-size:36px;font-weight:700;color:' + (top5Pct > 60 ? 'var(--orange)' : 'var(--green)') + '">' + top5Pct + '%</span>' +
+    '<div style="color:var(--text-dim);font-size:12px;margin-top:4px;">of revenue from top 5 customers</div></div>' +
+    '<div class="conc-bar">' +
+    conc.top5.map((c,i) => {
+      const w = conc.totalRevenue > 0 ? (c.revenue/conc.totalRevenue*100).toFixed(1) : 0;
+      return '<div class="conc-segment" style="width:'+w+'%;background:'+colors[i]+'" title="'+c.name+': '+w+'%">'+(w > 8 ? w+'%' : '')+'</div>';
+    }).join('') +
+    '<div class="conc-segment" style="width:'+(100-top5Pct)+'%;background:#334155">Others</div></div>' +
+    '<div style="margin-top:12px;font-size:11px;color:var(--text-dim);">' +
+    conc.top5.map((c,i) => '<span style="color:'+colors[i]+'">&#9632;</span> '+c.name).join(' &middot; ') + '</div>';
+}
+
+function renderCustomerRankings(data) {
+  const top10 = data.customers.top10;
+  document.querySelector('#topTable tbody').innerHTML = top10.map((c,i) => {
+    const up = parseFloat(c.trend) >= 0 || c.trend === 'NEW';
+    return '<tr><td>'+(i+1)+'</td><td><strong>'+c.name+'</strong></td>' +
+      '<td>'+fmt(c.periodRevenue)+'</td><td>'+c.periodConsignments+'</td><td>$'+c.avgPerCon+'</td>' +
+      '<td><span class="badge '+(up?'green':'red')+'">'+(c.trend === 'NEW' ? 'NEW' : (up?'+':'') + c.trend + '%')+'</span></td></tr>';
+  }).join('');
+
+  const bottom10 = data.customers.bottom10;
+  document.querySelector('#bottomTable tbody').innerHTML = bottom10.map((c,i) => {
+    const up = parseFloat(c.trend) >= 0 || c.trend === 'NEW';
+    return '<tr><td>'+(i+1)+'</td><td><strong>'+c.name+'</strong></td>' +
+      '<td>'+fmt(c.periodRevenue)+'</td><td>'+c.periodConsignments+'</td><td>'+c.lastOrder+'</td>' +
+      '<td><span class="badge '+(up?'green':'red')+'">'+(c.trend === 'NEW' ? 'NEW' : (up?'+':'') + c.trend + '%')+'</span></td></tr>';
+  }).join('');
+}
+
+function renderOperational(data) {
+  document.querySelector('#lanesTable tbody').innerHTML = data.lanes.map(l =>
+    '<tr><td>'+l.origin+'</td><td>'+l.dest+'</td><td>'+l.cons+'</td><td>'+fmt(l.rev)+'</td><td>'+l.topCustomer+'</td></tr>'
+  ).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-dim)">No lane data yet</td></tr>';
+
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  charts.peak = new Chart(document.getElementById('peakChart'), {
+    type: 'bar',
+    data: { labels: days, datasets: [{ data: data.peakDays, backgroundColor: data.peakDays.map((_,i) => i < 5 ? 'rgba(99,102,241,0.6)' : 'rgba(99,102,241,0.2)'), borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }, x: { ticks: { color: '#94a3b8' }, grid: { display: false } } } }
+  });
+
+  document.querySelector('#zoneTable tbody').innerHTML = data.zones.map(z => {
+    const avg = z.cons > 0 ? (z.rev / z.cons).toFixed(2) : '0';
+    return '<tr><td>'+z.zone+'</td><td>'+fmt(z.rev)+'</td><td>'+z.cons+'</td><td>$'+avg+'</td></tr>';
+  }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-dim)">No zone data yet</td></tr>';
+}
+
+// ── Init ──
+document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+loadDashboard();
+setInterval(loadDashboard, 120000);
+</script>
+</body>
+</html>
